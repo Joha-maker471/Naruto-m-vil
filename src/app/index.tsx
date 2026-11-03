@@ -1,98 +1,238 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import {
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function App() {
+  // Estados de la app
+  const [textoMision, setTextoMision] = useState('');
+  const [tareas, setTareas] = useState([]);
+  const [kuramaActivo, setKuramaActivo] = useState(false); 
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+  const agregarTarea = () => {
+    if (textoMision.trim() === '') return; // Si está vacío, no hace nada
+
+    // Si el usuario escribe el código secreto
+    if (textoMision.toLowerCase() === 'kurama' || textoMision === '123456') {
+      const nuevoEstado = !kuramaActivo;
+      setKuramaActivo(nuevoEstado);
+      Alert.alert(
+        "🦊 MODO KURAMA", 
+        nuevoEstado ? "El chakra se despertó. (Escribí 'kurama' de nuevo para calmarlo)" : "Kurama se calmó."
+      );
+      setTextoMision('');
+      return;
+    }
+
+    // Crear la tarea nueva y sumarla a la lista
+    const nuevaTarea = {
+      id: Date.now().toString(),
+      texto: textoMision,
+      completada: false
+    };
+
+    const listaActualizada = [...tareas, nuevaTarea];
+    setTareas(listaActualizada);
+    setTextoMision('');
+
+    // Cuento las que faltan hacer para ver si Kurama se enoja
+    const pendientes = listaActualizada.filter(t => !t.completada).length;
+    
+    // Si hay 3 o más, salta el cartel
+    if (pendientes >= 3) {
+      setKuramaActivo(true);
+      Alert.alert(
+        "🦊 ¡Kurama está enojado!", 
+        `¡Hey! Tienes ${pendientes} misiones pendientes. ¡Ponte las pilas!`
+      );
+    }
+  };
+
+  // Función para tachar las tareas
+  const completarTarea = (id) => {
+    const tareasActualizadas = tareas.map((tarea) => {
+      if (tarea.id === id) {
+        return { ...tarea, completada: !tarea.completada };
+      }
+      return tarea;
+    });
+    setTareas(tareasActualizadas);
+
+    // Si bajo de 3 pendientes, Kurama se calma
+    const pendientes = tareasActualizadas.filter(t => !t.completada).length;
+    if (pendientes < 3) {
+      setKuramaActivo(false); 
+    }
+  };
+
+  // Función para borrar tareas
+  const eliminarTarea = (id) => {
+    const tareasFiltradas = tareas.filter((tarea) => tarea.id !== id);
+    setTareas(tareasFiltradas);
+
+    const pendientes = tareasFiltradas.filter(t => !t.completada).length;
+    if (pendientes < 3) {
+      setKuramaActivo(false); 
+    }
+  };
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <SafeAreaView style={[styles.container, kuramaActivo && styles.containerKurama]}>
+      <View style={styles.header}>
+        <Text style={styles.titulo}>🍥 Naruto Shippuden 🍥</Text>
+        <Text style={styles.subtitulo}>Pergamino de Misiones</Text>
+      </View>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Anotar nueva misión..."
+          placeholderTextColor="#888"
+          value={textoMision}
+          onChangeText={setTextoMision}
+        />
+        <TouchableOpacity style={styles.botonAgregar} onPress={agregarTarea}>
+          <Text style={styles.textoBotonAgregar}>Aceptar</Text>
+        </TouchableOpacity>
+      </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+      <ScrollView>
+        {tareas.map((item) => (
+          <View key={item.id} style={styles.tarjetaTarea}>
+            <Text style={[styles.textoTarea, item.completada && styles.textoCompletado]}>
+              {item.completada ? '✅ ' : '📜 '} 
+              {item.texto}
+            </Text>
+            
+            <View style={styles.botonesAccion}>
+              <TouchableOpacity onPress={() => completarTarea(item.id)} style={styles.botonCompletar}>
+                <Text style={styles.textoBotonAccion}>{item.completada ? 'Desmarcar' : 'Completar'}</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity onPress={() => eliminarTarea(item.id)} style={styles.botonEliminar}>
+                <Text style={styles.textoBotonAccion}>Eliminar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
-
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        {tareas.length === 0 && (
+          <Text style={styles.textoVacio}>No hay misiones pendientes, ninja. ¡Entrena!</Text>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
+    backgroundColor: '#F4F4F4', 
+    padding: 20,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
+  containerKurama: {
+    backgroundColor: '#FF8C00', // Tu color elegido
+  },
+  header: {
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    marginBottom: 20,
+    marginTop: 30,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
+  titulo: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FF8C00', // Tu color elegido
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitulo: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '600',
+    marginTop: 5,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  inputContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
   },
+  input: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderWidth: 2,
+    borderColor: '#FF8C00', // Tu color elegido
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    color: '#000',
+  },
+  botonAgregar: {
+    backgroundColor: '#FF8C00', // Tu color elegido
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginLeft: 10,
+  },
+  textoBotonAgregar: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  tarjetaTarea: {
+    backgroundColor: '#FFF',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderLeftWidth: 5,
+    borderLeftColor: '#FF8C00', // Tu color elegido
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  textoTarea: {
+    fontSize: 16,
+    color: '#333',
+    marginBottom: 10,
+  },
+  textoCompletado: {
+    textDecorationLine: 'line-through',
+    color: '#888',
+  },
+  botonesAccion: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  botonCompletar: {
+    backgroundColor: '#28a745',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+  },
+  botonEliminar: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 5,
+  },
+  textoBotonAccion: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  textoVacio: {
+    textAlign: 'center',
+    color: '#888',
+    fontSize: 16,
+    fontStyle: 'italic',
+    marginTop: 20,
+  }
 });
